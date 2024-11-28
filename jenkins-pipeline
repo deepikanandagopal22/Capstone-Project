@@ -1,0 +1,52 @@
+pipeline {
+    agent any
+    environment {
+        DOCKER_USER = '<your-dockerhub-username>'
+        APP_NAME = 'ecommerce-app'
+        DEV_REPO = "${DOCKER_USER}/ecommerce-app-dev"
+        PROD_REPO = "${DOCKER_USER}/ecommerce-app-prod"
+    }
+    stages {
+        stage('Checkout') {
+            steps {
+                git branch: 'dev', url: '<your-github-repo-url>'
+            }
+        }
+        stage('Build Images') {
+            steps {
+                script {
+                    sh './build.sh'
+                }
+            }
+        }
+        stage('Push Images') {
+            steps {
+                script {
+                    if (env.BRANCH_NAME == 'dev') {
+                        sh """
+                        docker tag $DOCKER_USER/$APP_NAME-frontend:latest $DEV_REPO-frontend:latest
+                        docker push $DEV_REPO-frontend:latest
+
+                        docker tag $DOCKER_USER/$APP_NAME-backend:latest $DEV_REPO-backend:latest
+                        docker push $DEV_REPO-backend:latest
+                        """
+                    } else if (env.BRANCH_NAME == 'master') {
+                        sh """
+                        docker tag $DOCKER_USER/$APP_NAME-frontend:latest $PROD_REPO-frontend:latest
+                        docker push $PROD_REPO-frontend:latest
+
+                        docker tag $DOCKER_USER/$APP_NAME-backend:latest $PROD_REPO-backend:latest
+                        docker push $PROD_REPO-backend:latest
+                        """
+                    }
+                }
+            }
+        }
+        stage('Deploy') {
+            steps {
+                sh './deploy.sh'
+            }
+        }
+    }
+}
+
